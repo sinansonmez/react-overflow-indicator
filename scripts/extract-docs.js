@@ -3,7 +3,7 @@ const fs = require('fs');
 const reactDocs = require('react-docgen');
 const displayNameHandler = require('react-docgen-displayname-handler').default;
 
-const files = ['src/index.js'];
+const files = ['src/index.tsx'];
 
 const resolver = reactDocs.resolver.findAllComponentDefinitions;
 const handlers = reactDocs.defaultHandlers.concat([displayNameHandler]);

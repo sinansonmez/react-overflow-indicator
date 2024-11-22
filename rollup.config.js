@@ -6,7 +6,7 @@ import { terser } from 'rollup-plugin-terser';
 import pkg from './package.json';
 
 const baseConfig = {
-  input: 'src/index.js',
+  input: 'src/index.tsx',
   external: ['react', 'react-dom', 'prop-types'],
   output: [
     { file: pkg.main, format: 'cjs' },
