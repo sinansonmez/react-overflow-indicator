@@ -15,29 +15,29 @@ enum Direction {
   left = 'left',
   right = 'right',
   down = 'down'
-};
+}
 
 interface CanScroll {
-  [Direction.up]: boolean
-  [Direction.left]: boolean
-  [Direction.right]: boolean
-  [Direction.down]: boolean
+  [Direction.up]: boolean;
+  [Direction.left]: boolean;
+  [Direction.right]: boolean;
+  [Direction.down]: boolean;
 }
 
 interface Dispatch {
-  type: string
-  direction: keyof typeof Direction
-  canScroll: boolean
+  type: string;
+  direction: keyof typeof Direction;
+  canScroll: boolean;
 }
 
 interface OverflowContext {
-  tolerance?: number | string
-  refs: { viewport: MutableRefObject<HTMLDivElement | null> }
-  canScroll?: CanScroll
+  tolerance?: number | string;
+  refs: { viewport: MutableRefObject<HTMLDivElement | null> };
+  canScroll?: CanScroll;
   state: {
-    canScroll: CanScroll
-  }
-  dispatch: ({type, direction, canScroll}: Dispatch) => void
+    canScroll: CanScroll;
+  };
+  dispatch?: ({ type, direction, canScroll }: Dispatch) => void;
 }
 
 const Context = React.createContext<OverflowContext>({});
@@ -67,7 +67,7 @@ const contentStyle: CSSProperties = {
   boxSizing: 'border-box'
 };
 
-function reducer(state, action: PayloadAction<>) {
+function reducer(state: { canScroll: CanScroll }, action: Dispatch) {
   switch (action.type) {
     case 'CHANGE': {
       const currentValue = state.canScroll[action.direction];
@@ -190,12 +190,15 @@ interface Overflow {
    * `<Overflow.Content>` element at a minimum, but should also include your
    * scroll indicators if you’d like to overlay them on the scrollable viewport.
    */
-  children: ReactNode,
+  children: ReactNode;
   /**
    * Callback that receives the latest overflow state and an object of refs, if
    * you’d like to react to overflow in a custom way.
    */
-  onStateChange: (state: string, refs: {viewport: MutableRefObject<HTMLDivElement | null>}) => void,
+  onStateChange: (
+    state: OverflowContext['state'],
+    refs: OverflowContext['refs']
+  ) => void;
   /**
    * Distance (number of pixels or CSS length unit like `1em`) to the edge of
    * the content at which to consider the viewport fully scrolled. For example,
@@ -203,10 +206,10 @@ interface Overflow {
    * long as it’s within 10 pixels of the border. You can use this when your
    * content has padding and scrolling close to the edge should be good enough.
    */
-  tolerance: number | string
-  style: CSSProperties
-  hidden: boolean
-};
+  tolerance: number | string;
+  style: CSSProperties;
+  hidden: boolean;
+}
 
 // For Firefox, update on a threshold of 0 in addition to any intersection at
 // all (represented by a tiny tiny threshold).
@@ -223,20 +226,29 @@ const threshold = [0, 1e-12];
  * own element inside `<Overflow.Content>` instead – otherwise you risk
  * interfering with the styles this component needs to function.
  */
-function OverflowContent({ children, style: styleProp, ...rest }: OverflowContent) {
+function OverflowContent({
+  children,
+  style: styleProp,
+  ...rest
+}: OverflowContent) {
   const { dispatch, tolerance, refs } = useOverflow();
   const { viewport: viewportRef } = refs;
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const toleranceRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const toleranceRef = useRef<HTMLDivElement>(null);
   const watchRef = tolerance ? toleranceRef : contentRef;
-  const observersRef = useRef<HTMLDivElement | null>(null);
+  const observersRef = useRef<{
+    [Direction.up]: IntersectionObserver;
+    [Direction.left]: IntersectionObserver;
+    [Direction.down]: IntersectionObserver;
+    [Direction.right]: IntersectionObserver;
+  } | null>(null);
 
   useEffect(() => {
     let ignore = false;
 
     const root = viewportRef.current;
 
-    const createObserver = (direction: Direction, rootMargin: string) => {
+    const createObserver = (direction: Direction, rootMargin?: string) => {
       return new IntersectionObserver(
         ([entry]) => {
           if (ignore) {
@@ -254,7 +266,7 @@ function OverflowContent({ children, style: styleProp, ...rest }: OverflowConten
             // case.
             entry.intersectionRatio !== 0 &&
             entry.isIntersecting;
-          dispatch({ type: 'CHANGE', direction, canScroll });
+          dispatch?.({ type: 'CHANGE', direction, canScroll });
         },
         {
           root,
@@ -286,16 +298,20 @@ function OverflowContent({ children, style: styleProp, ...rest }: OverflowConten
     const observers = observersRef.current;
     const watchNode = watchRef.current;
 
-    observers?.up.observe(watchNode);
-    observers.left.observe(watchNode);
-    observers.right.observe(watchNode);
-    observers.down.observe(watchNode);
+    if (watchNode) {
+      observers?.up.observe(watchNode);
+      observers?.left.observe(watchNode);
+      observers?.right.observe(watchNode);
+      observers?.down.observe(watchNode);
+    }
 
     return () => {
-      observers.up.unobserve(watchNode);
-      observers.left.unobserve(watchNode);
-      observers.right.unobserve(watchNode);
-      observers.down.unobserve(watchNode);
+      if (watchNode) {
+        observers?.up.unobserve(watchNode);
+        observers?.left.unobserve(watchNode);
+        observers?.right.unobserve(watchNode);
+        observers?.down.unobserve(watchNode);
+      }
     };
   }, [watchRef]);
 
@@ -343,9 +359,9 @@ interface OverflowContent {
   /**
    * Content to render inside the scrollable viewport.
    */
-  children: ReactNode
-  style: CSSProperties
-};
+  children: ReactNode;
+  style: CSSProperties;
+}
 
 /**
  * A helper component for rendering your custom indicator when the viewport is
@@ -388,7 +404,7 @@ interface OverflowContent {
  * </Overflow>
  * ```
  */
-function OverflowIndicator({ children, direction } : OverflowIndicator) {
+function OverflowIndicator({ children, direction }: OverflowIndicator) {
   const { state, refs } = useOverflow();
   const { canScroll } = state;
   const isActive = direction
@@ -415,13 +431,18 @@ interface OverflowIndicator {
    * containing the `viewport` ref. You can use this `refs` parameter to render
    * an indicator that is also a button that scrolls the viewport (for example).
    */
-  children: ReactElement | ((stateArg: boolean | CanScroll, refs: OverflowContext['refs']) => ReactElement)
+  children:
+    | ReactElement
+    | ((
+        stateArg: boolean | CanScroll,
+        refs: OverflowContext['refs']
+      ) => ReactElement);
   /**
    * The scrollabe direction to watch for. If not supplied, the indicator will
    * be active when scrolling is allowed in any direction.
    */
-  direction: keyof typeof Direction
-};
+  direction: keyof typeof Direction;
+}
 
 Overflow.Indicator = OverflowIndicator;
 Overflow.Content = OverflowContent;
