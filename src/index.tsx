@@ -1,25 +1,58 @@
 import React, {
+  CSSProperties,
+  MutableRefObject,
+  ReactElement,
+  ReactNode,
   useContext,
   useEffect,
   useMemo,
   useReducer,
   useRef
 } from 'react';
-import PropTypes from 'prop-types';
 
-const Context = React.createContext();
+enum Direction {
+  up = 'up',
+  left = 'left',
+  right = 'right',
+  down = 'down'
+};
+
+interface CanScroll {
+  [Direction.up]: boolean
+  [Direction.left]: boolean
+  [Direction.right]: boolean
+  [Direction.down]: boolean
+}
+
+interface Dispatch {
+  type: string
+  direction: keyof typeof Direction
+  canScroll: boolean
+}
+
+interface OverflowContext {
+  tolerance?: number | string
+  refs: { viewport: MutableRefObject<HTMLDivElement | null> }
+  canScroll?: CanScroll
+  state: {
+    canScroll: CanScroll
+  }
+  dispatch: ({type, direction, canScroll}: Dispatch) => void
+}
+
+const Context = React.createContext<OverflowContext>({});
 
 export function useOverflow() {
   return useContext(Context);
 }
 
-const containerStyle = {
+const containerStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   position: 'relative'
 };
 
-const viewportStyle = {
+const viewportStyle: CSSProperties = {
   position: 'relative',
   flexBasis: '100%',
   flexShrink: 1,
@@ -27,14 +60,14 @@ const viewportStyle = {
   overflow: 'auto'
 };
 
-const contentStyle = {
+const contentStyle: CSSProperties = {
   display: 'inline-block',
   position: 'relative',
   minWidth: '100%',
   boxSizing: 'border-box'
 };
 
-function reducer(state, action) {
+function reducer(state, action: PayloadAction<>) {
   switch (action.type) {
     case 'CHANGE': {
       const currentValue = state.canScroll[action.direction];
@@ -104,10 +137,10 @@ export default function Overflow({
   style: styleProp,
   tolerance = 0,
   ...rest
-}) {
+}: Overflow) {
   const [state, dispatch] = useReducer(reducer, null, getInitialState);
   const hidden = rest.hidden;
-  const viewportRef = useRef();
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   const style = useMemo(
     () => ({
@@ -151,18 +184,18 @@ export default function Overflow({
   );
 }
 
-Overflow.propTypes = {
+interface Overflow {
   /**
    * Elements to render inside the outer container. This should include an
    * `<Overflow.Content>` element at a minimum, but should also include your
    * scroll indicators if you’d like to overlay them on the scrollable viewport.
    */
-  children: PropTypes.node,
+  children: ReactNode,
   /**
    * Callback that receives the latest overflow state and an object of refs, if
    * you’d like to react to overflow in a custom way.
    */
-  onStateChange: PropTypes.func,
+  onStateChange: (state: string, refs: {viewport: MutableRefObject<HTMLDivElement | null>}) => void,
   /**
    * Distance (number of pixels or CSS length unit like `1em`) to the edge of
    * the content at which to consider the viewport fully scrolled. For example,
@@ -170,7 +203,9 @@ Overflow.propTypes = {
    * long as it’s within 10 pixels of the border. You can use this when your
    * content has padding and scrolling close to the edge should be good enough.
    */
-  tolerance: PropTypes.oneOfType([PropTypes.number, PropTypes.string])
+  tolerance: number | string
+  style: CSSProperties
+  hidden: boolean
 };
 
 // For Firefox, update on a threshold of 0 in addition to any intersection at
@@ -188,20 +223,20 @@ const threshold = [0, 1e-12];
  * own element inside `<Overflow.Content>` instead – otherwise you risk
  * interfering with the styles this component needs to function.
  */
-function OverflowContent({ children, style: styleProp, ...rest }) {
+function OverflowContent({ children, style: styleProp, ...rest }: OverflowContent) {
   const { dispatch, tolerance, refs } = useOverflow();
   const { viewport: viewportRef } = refs;
-  const contentRef = useRef();
-  const toleranceRef = useRef();
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const toleranceRef = useRef<HTMLDivElement | null>(null);
   const watchRef = tolerance ? toleranceRef : contentRef;
-  const observersRef = useRef();
+  const observersRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let ignore = false;
 
     const root = viewportRef.current;
 
-    const createObserver = (direction, rootMargin) => {
+    const createObserver = (direction: Direction, rootMargin: string) => {
       return new IntersectionObserver(
         ([entry]) => {
           if (ignore) {
@@ -230,10 +265,10 @@ function OverflowContent({ children, style: styleProp, ...rest }) {
     };
 
     const observers = {
-      up: createObserver('up', '100% 0px -100% 0px'),
-      left: createObserver('left', '0px -100% 0px 100%'),
-      right: createObserver('right', '0px 100% 0px -100%'),
-      down: createObserver('down', '-100% 0px 100% 0px')
+      up: createObserver(Direction.up, '100% 0px -100% 0px'),
+      left: createObserver(Direction.left, '0px -100% 0px 100%'),
+      right: createObserver(Direction.right, '0px 100% 0px -100%'),
+      down: createObserver(Direction.down, '-100% 0px 100% 0px')
     };
 
     observersRef.current = observers;
@@ -251,7 +286,7 @@ function OverflowContent({ children, style: styleProp, ...rest }) {
     const observers = observersRef.current;
     const watchNode = watchRef.current;
 
-    observers.up.observe(watchNode);
+    observers?.up.observe(watchNode);
     observers.left.observe(watchNode);
     observers.right.observe(watchNode);
     observers.down.observe(watchNode);
@@ -304,11 +339,12 @@ function OverflowContent({ children, style: styleProp, ...rest }) {
 
 OverflowContent.displayName = 'Overflow.Content';
 
-OverflowContent.propTypes = {
+interface OverflowContent {
   /**
    * Content to render inside the scrollable viewport.
    */
-  children: PropTypes.node
+  children: ReactNode
+  style: CSSProperties
 };
 
 /**
@@ -352,7 +388,7 @@ OverflowContent.propTypes = {
  * </Overflow>
  * ```
  */
-function OverflowIndicator({ children, direction }) {
+function OverflowIndicator({ children, direction } : OverflowIndicator) {
   const { state, refs } = useOverflow();
   const { canScroll } = state;
   const isActive = direction
@@ -372,19 +408,19 @@ function OverflowIndicator({ children, direction }) {
 
 OverflowIndicator.displayName = 'Overflow.Indicator';
 
-OverflowIndicator.propTypes = {
+interface OverflowIndicator {
   /**
    * Indicator to render when scrolling is allowed in the requested direction.
    * If given a function, it will be passed the overflow state and an object
    * containing the `viewport` ref. You can use this `refs` parameter to render
    * an indicator that is also a button that scrolls the viewport (for example).
    */
-  children: PropTypes.oneOfType([PropTypes.node, PropTypes.func]),
+  children: ReactElement | ((stateArg: boolean | CanScroll, refs: OverflowContext['refs']) => ReactElement)
   /**
    * The scrollabe direction to watch for. If not supplied, the indicator will
    * be active when scrolling is allowed in any direction.
    */
-  direction: PropTypes.oneOf(['up', 'down', 'left', 'right'])
+  direction: keyof typeof Direction
 };
 
 Overflow.Indicator = OverflowIndicator;

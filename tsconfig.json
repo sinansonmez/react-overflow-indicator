@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "es2020",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "experimentalDecorators": true,
+    "jsx": "preserve",
+    "baseUrl": "./src",
+    "useUnknownInCatchVariables": false,
+    "composite": true,
+    "incremental": true
+  },
+  "include": [
+    "./src/**/*",
+    "./src/**/*.json"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
